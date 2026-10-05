@@ -34,3 +34,22 @@ pour le développement local avec l’émulateur.
 
 Les notifications système natives Android ne sont pas encore implémentées. Les
 notifications et toasts rendus par l’interface web restent disponibles.
+
+## Builds et releases GitHub
+
+Le workflow `.github/workflows/android-release.yml` se déclenche lorsqu’un tag
+`v*` est poussé. Il compile un APK debug installable, le publie comme artefact
+du workflow et crée une Release GitHub avec l’APK en pièce jointe.
+
+Pour définir l’URL utilisée par les releases, créer une variable de dépôt
+GitHub nommée `MEDIAFORGE_URL`. Il est aussi possible de lancer le workflow
+manuellement et de fournir l’URL dans son champ d’entrée.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+L’APK est actuellement signé avec la clé debug générée par Android. Une clé de
+signature de production devra être ajoutée dans les secrets GitHub avant une
+publication sur Google Play.
