@@ -3,6 +3,10 @@
 Application Android minimale qui embarque l’interface web MediaForge dans une
 WebView native.
 
+Au premier démarrage, un écran de configuration demande l’URL du serveur, le
+nom d’utilisateur et le mot de passe. Le mot de passe est chiffré avec Android
+Keystore et la connexion web est ensuite remplie automatiquement.
+
 ## Ouvrir le projet
 
 Ouvrir le dossier `mediaforge-android` dans Android Studio, puis synchroniser
@@ -29,8 +33,8 @@ pour le développement local avec l’émulateur.
 - Le bouton retour Android navigue dans l’historique de la WebView.
 - Les schémas externes (`mailto:`, liens d’applications, etc.) sont ouverts par
   Android.
-- La session reste celle de la WebView ; aucune API native n’est encore
-  nécessaire.
+- Un bouton `Configuration` reste disponible dans la barre native pour modifier
+  le serveur ou les identifiants.
 
 Les notifications système natives Android ne sont pas encore implémentées. Les
 notifications et toasts rendus par l’interface web restent disponibles.
