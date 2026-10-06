@@ -10,6 +10,14 @@ val mediaforgeUrl = providers.gradleProperty("MEDIAFORGE_URL")
 val releaseVersion = providers.gradleProperty("VERSION_NAME")
     .orElse("0.1.0")
     .get()
+val releaseVersionCode = providers.gradleProperty("VERSION_CODE")
+    .orElse("1")
+    .get()
+    .toInt()
+val signingFile = providers.gradleProperty("ANDROID_KEYSTORE_FILE")
+val signingStorePassword = providers.gradleProperty("ANDROID_KEYSTORE_PASSWORD")
+val signingKeyAlias = providers.gradleProperty("ANDROID_KEY_ALIAS")
+val signingKeyPassword = providers.gradleProperty("ANDROID_KEY_PASSWORD")
 
 android {
     namespace = "com.mediaforge.android"
@@ -19,7 +27,7 @@ android {
         applicationId = "com.mediaforge.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = releaseVersionCode
         versionName = releaseVersion
 
         buildConfigField("String", "MEDIAFORGE_URL", "\"${mediaforgeUrl.replace("\"", "\\\"")}\"")
@@ -36,6 +44,25 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    signingConfigs {
+        create("persistentRelease") {
+            if (signingFile.isPresent && signingStorePassword.isPresent && signingKeyAlias.isPresent && signingKeyPassword.isPresent) {
+                storeFile = file(signingFile.get())
+                storePassword = signingStorePassword.get()
+                keyAlias = signingKeyAlias.get()
+                keyPassword = signingKeyPassword.get()
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (signingFile.isPresent && signingStorePassword.isPresent && signingKeyAlias.isPresent && signingKeyPassword.isPresent) {
+                signingConfig = signingConfigs.getByName("persistentRelease")
+            }
+        }
     }
 }
 

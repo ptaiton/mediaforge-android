@@ -66,14 +66,46 @@ jobs:
             exit 1
           fi
 
+          if [[ "$tag_name" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            version_code=$((BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3]))
+          else
+            echo "Version générée non conforme : $tag_name" >&2
+            exit 1
+          fi
+
           echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
           echo "version_name=${tag_name#v}" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "Création de la release $tag_name"
 
-      - name: Build debug APK
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_BASE64" ]]; then
+            echo "Le secret ANDROID_KEYSTORE_BASE64 est absent." >&2
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mediaforge-release.keystore"
+
+      - name: Build signed release APK
         env:
           VERSION_NAME: ${{ steps.release.outputs.version_name }}
-        run: gradle --no-daemon assembleDebug -PMEDIAFORGE_URL="$MEDIAFORGE_URL" -PVERSION_NAME="$VERSION_NAME"
+          VERSION_CODE: ${{ steps.release.outputs.version_code }}
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/mediaforge-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon assembleRelease \
+            -PMEDIAFORGE_URL="$MEDIAFORGE_URL" \
+            -PVERSION_NAME="$VERSION_NAME" \
+            -PVERSION_CODE="$VERSION_CODE" \
+            -PANDROID_KEYSTORE_FILE="$ANDROID_KEYSTORE_FILE" \
+            -PANDROID_KEYSTORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
+            -PANDROID_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
+            -PANDROID_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
 
       - name: Prepare APK
         shell: bash
@@ -81,7 +113,7 @@ jobs:
           TAG_NAME: ${{ steps.release.outputs.tag_name }}
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk "mediaforge-${TAG_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "mediaforge-${TAG_NAME}.apk"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v6

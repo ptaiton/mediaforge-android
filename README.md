@@ -47,8 +47,8 @@ notifications et toasts rendus par l’interface web restent disponibles.
 
 Le workflow `.github/workflows/android-release.yml` se déclenche à chaque push
 sur `main`. Il calcule automatiquement le prochain tag patch (`v0.1.1`, puis
-`v0.1.2`, etc.), compile un APK debug installable, pousse le tag et crée une
-Release GitHub avec l’APK en pièce jointe.
+`v0.1.2`, etc.), compile un APK release signé, pousse le tag et crée une Release
+GitHub avec l’APK en pièce jointe.
 
 Pour définir l’URL utilisée par les releases, créer une variable de dépôt
 GitHub nommée `MEDIAFORGE_URL`. Il est aussi possible de lancer le workflow
@@ -58,6 +58,6 @@ Il n’est donc plus nécessaire de créer les tags manuellement. Une exécution
 manuelle du workflow reste possible depuis l’onglet Actions pour tester un
 build avec une URL différente.
 
-L’APK est actuellement signé avec la clé debug générée par Android. Une clé de
-signature de production devra être ajoutée dans les secrets GitHub avant une
-publication sur Google Play.
+La clé de signature persistante est conservée dans les secrets GitHub et dans
+le dossier local ignoré `signing/`. Ce fichier doit être sauvegardé : perdre la
+clé empêcherait les futures mises à jour de l’application.
