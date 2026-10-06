@@ -5,7 +5,8 @@ WebView native.
 
 Au premier démarrage, un écran de configuration demande l’URL du serveur, le
 nom d’utilisateur et le mot de passe. Le mot de passe est chiffré avec Android
-Keystore et la connexion web est ensuite remplie automatiquement.
+Keystore ; l’application authentifie directement la session puis ouvre la
+WebView avec son cookie de connexion.
 
 ## Ouvrir le projet
 
@@ -33,8 +34,11 @@ pour le développement local avec l’émulateur.
 - Le bouton retour Android navigue dans l’historique de la WebView.
 - Les schémas externes (`mailto:`, liens d’applications, etc.) sont ouverts par
   Android.
-- Un bouton `Configuration` reste disponible dans la barre native pour modifier
-  le serveur ou les identifiants.
+- En mode Android, le menu mobile de MediaForge affiche `App compagnon` avec
+  une icône de réglages pour rouvrir cet écran de configuration.
+- La WebView occupe tout l’écran utile. Les marges système Android sont
+  appliquées automatiquement en haut et en bas pour éviter l’encoche et la
+  barre de navigation.
 
 Les notifications système natives Android ne sont pas encore implémentées. Les
 notifications et toasts rendus par l’interface web restent disponibles.

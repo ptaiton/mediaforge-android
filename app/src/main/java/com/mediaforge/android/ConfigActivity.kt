@@ -14,6 +14,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 
 class ConfigActivity : ComponentActivity() {
     private lateinit var credentialStore: CredentialStore
@@ -25,7 +28,19 @@ class ConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         credentialStore = CredentialStore(this)
-        setContentView(createContent())
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        val content = createContent()
+        ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+            val safeInsets = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
+            )
+            view.setPadding(dp(28), dp(44) + safeInsets.top, dp(28), dp(28) + safeInsets.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(content)
+        setContentView(content)
     }
 
     private fun createContent(): ScrollView {

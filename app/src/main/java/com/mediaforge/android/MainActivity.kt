@@ -5,26 +5,30 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.view.Gravity
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
-import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var credentialStore: CredentialStore
+    private val loginExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var credentials: ServerCredentials? = null
-    private var loginAttemptedFor: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,15 +42,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        window.statusBarColor = Color.rgb(17, 17, 27)
-        window.navigationBarColor = Color.rgb(17, 17, 27)
+        configureSystemBars()
 
         webView = WebView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
-            )
             setBackgroundColor(Color.rgb(17, 17, 27))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -55,6 +53,7 @@ class MainActivity : ComponentActivity() {
             settings.allowFileAccess = false
             settings.allowContentAccess = true
             settings.setSupportZoom(false)
+            settings.userAgentString = "${settings.userAgentString} MediaForgeAndroid/${BuildConfig.VERSION_NAME}"
             webViewClient = MediaForgeWebViewClient()
             webChromeClient = WebChromeClient()
         }
@@ -64,70 +63,113 @@ class MainActivity : ComponentActivity() {
             setAcceptThirdPartyCookies(webView, true)
         }
 
-        setContentView(createContent())
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(17, 17, 27))
+            addView(
+                webView,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+        }
+        applySafeArea(root)
+        setContentView(root)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    finish()
-                }
+                if (webView.canGoBack()) webView.goBack() else finish()
             }
         })
 
         if (savedInstanceState == null) {
-            loadConfiguredServer()
+            authenticateAndLoadServer()
         } else {
             webView.restoreState(savedInstanceState)
         }
     }
 
-    private fun createContent(): LinearLayout {
-        val toolbar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), 0, dp(8), 0)
-            setBackgroundColor(Color.rgb(17, 17, 27))
-        }
-
-        val title = TextView(this).apply {
-            text = "MediaForge"
-            textSize = 16f
-            setTextColor(Color.WHITE)
-        }
-        toolbar.addView(
-            title,
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
-                gravity = Gravity.CENTER_VERTICAL
-            },
-        )
-
-        val configButton = Button(this).apply {
-            text = "Configuration"
-            isAllCaps = false
-            textSize = 12f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.mediaforge_primary))
-            setOnClickListener { openConfiguration() }
-        }
-        toolbar.addView(
-            configButton,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(48)),
-        )
-
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(17, 17, 27))
-            addView(toolbar, LinearLayout.LayoutParams.MATCH_PARENT, dp(48))
-            addView(webView)
-        }
+    private fun configureSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
     }
 
-    private fun loadConfiguredServer() {
+    private fun applySafeArea(root: FrameLayout) {
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val safeInsets = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
+            )
+            view.updatePadding(top = safeInsets.top, bottom = safeInsets.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
+    }
+
+    private fun authenticateAndLoadServer() {
         val currentCredentials = credentials ?: return
-        loginAttemptedFor = null
-        webView.loadUrl(currentCredentials.baseUrl)
+        webView.loadData(
+            "<html><body style=\"background:#11111b\"></body></html>",
+            "text/html",
+            "UTF-8",
+            null,
+        )
+
+        loginExecutor.execute {
+            var responseCode = -1
+            var cookies = emptyList<String>()
+            var failure: String? = null
+
+            try {
+                val connection = URL(loginUrl(currentCredentials.baseUrl)).openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 15_000
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Accept", "application/json")
+
+                val body = JSONObject()
+                    .put("username", currentCredentials.username)
+                    .put("password", currentCredentials.password)
+                    .toString()
+                    .toByteArray(Charsets.UTF_8)
+                connection.outputStream.use { it.write(body) }
+                responseCode = connection.responseCode
+                cookies = connection.headerFields
+                    .filterKeys { it.equals("Set-Cookie", ignoreCase = true) }
+                    .values
+                    .flatMap { it.orEmpty() }
+                runCatching {
+                    (if (responseCode >= 400) connection.errorStream else connection.inputStream)?.close()
+                }
+                connection.disconnect()
+            } catch (exception: Exception) {
+                failure = exception.message ?: "Impossible de joindre le serveur."
+            }
+
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+
+                val cookieManager = CookieManager.getInstance()
+                if (responseCode in 200..299 && cookies.isNotEmpty()) {
+                    cookies.forEach { cookieManager.setCookie(currentCredentials.baseUrl, it) }
+                    cookieManager.flush()
+                    webView.loadUrl(currentCredentials.baseUrl)
+                } else {
+                    webView.loadUrl(currentCredentials.baseUrl)
+                    val message = when {
+                        failure != null -> "Connexion au serveur impossible : $failure"
+                        responseCode == 401 -> "Identifiants invalides."
+                        else -> "Connexion automatique impossible (HTTP $responseCode)."
+                    }
+                    android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
+
+    private fun loginUrl(baseUrl: String): String = "${baseUrl.trimEnd('/')}/api/auth/login"
 
     private fun openConfiguration() {
         startActivity(Intent(this, ConfigActivity::class.java))
@@ -136,7 +178,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         credentials = credentialStore.read()
-        loadConfiguredServer()
+        authenticateAndLoadServer()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -145,6 +187,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        loginExecutor.shutdownNow()
         if (::webView.isInitialized) {
             webView.apply {
                 stopLoading()
@@ -157,15 +200,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private inner class MediaForgeWebViewClient : WebViewClient() {
-        override fun onPageFinished(view: WebView, url: String) {
-            super.onPageFinished(view, url)
-            val currentCredentials = credentials ?: return
-            if (loginAttemptedFor == currentCredentials.baseUrl) return
-
-            loginAttemptedFor = currentCredentials.baseUrl
-            view.evaluateJavascript(buildAutoLoginScript(currentCredentials), null)
-        }
-
         override fun shouldOverrideUrlLoading(
             view: WebView,
             request: WebResourceRequest,
@@ -176,45 +210,17 @@ class MainActivity : ComponentActivity() {
             handleUrl(view, Uri.parse(url))
 
         private fun handleUrl(view: WebView, uri: Uri): Boolean {
+            if (uri.scheme == "mediaforge" && uri.host == "settings") {
+                openConfiguration()
+                return true
+            }
+
             return if (uri.scheme == "http" || uri.scheme == "https") {
                 false
             } else {
-                runCatching {
-                    view.context.startActivity(Intent(Intent.ACTION_VIEW, uri))
-                }
+                runCatching { view.context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
                 true
             }
         }
     }
-
-    private fun buildAutoLoginScript(credentials: ServerCredentials): String {
-        val username = JSONObject.quote(credentials.username)
-        val password = JSONObject.quote(credentials.password)
-
-        return """
-            (function() {
-              const username = $username;
-              const password = $password;
-              const inputs = Array.from(document.querySelectorAll('input'));
-              const userInput = inputs.find((input) => input.type !== 'password' && input.type !== 'hidden');
-              const passwordInput = inputs.find((input) => input.type === 'password');
-              if (!userInput || !passwordInput) return;
-
-              const setValue = (input, value) => {
-                const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-                if (setter) setter.call(input, value); else input.value = value;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-              };
-
-              setValue(userInput, username);
-              setValue(passwordInput, password);
-              const form = passwordInput.closest('form') || userInput.closest('form');
-              const submit = form?.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
-              if (submit) submit.click(); else if (form?.requestSubmit) form.requestSubmit();
-            })();
-        """.trimIndent()
-    }
-
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
