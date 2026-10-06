@@ -1,7 +1,11 @@
 package com.mediaforge.android
 
 import android.annotation.SuppressLint
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -14,10 +18,14 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.google.firebase.FirebaseApp
+import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -29,6 +37,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var credentialStore: CredentialStore
     private val loginExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var credentials: ServerCredentials? = null
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +53,7 @@ class MainActivity : ComponentActivity() {
         }
 
         configureSystemBars()
+        configureNotifications()
 
         webView = WebView(this).apply {
             setBackgroundColor(Color.rgb(17, 17, 27))
@@ -154,6 +165,7 @@ class MainActivity : ComponentActivity() {
                 if (responseCode in 200..299 && cookies.isNotEmpty()) {
                     cookies.forEach { cookieManager.setCookie(currentCredentials.baseUrl, it) }
                     cookieManager.flush()
+                    registerPushToken()
                     webView.loadUrl(currentCredentials.baseUrl)
                 } else {
                     webView.loadUrl(currentCredentials.baseUrl)
@@ -169,6 +181,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loginUrl(baseUrl: String): String = "${baseUrl.trimEnd('/')}/api/auth/login"
+
+    private fun configureNotifications() {
+        val channelId = "mediaforge-events"
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(
+                channelId,
+                "Notifications MediaForge",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun registerPushToken() {
+        if (FirebaseApp.getApps(this).isEmpty()) return
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            PushRegistration.register(this, token)
+        }
+    }
 
     private fun openConfiguration() {
         startActivity(Intent(this, ConfigActivity::class.java))

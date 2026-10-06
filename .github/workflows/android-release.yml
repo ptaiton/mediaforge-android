@@ -89,6 +89,17 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mediaforge-release.keystore"
 
+      - name: Configure Firebase
+        env:
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$FIREBASE_CONFIG" ]]; then
+            printf '%s' "$FIREBASE_CONFIG" > app/google-services.json
+          else
+            echo "Secret FIREBASE_GOOGLE_SERVICES_JSON absent : les notifications push seront désactivées dans cet APK."
+          fi
+
       - name: Build signed release APK
         env:
           VERSION_NAME: ${{ steps.release.outputs.version_name }}

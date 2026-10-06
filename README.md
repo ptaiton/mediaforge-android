@@ -40,8 +40,10 @@ pour le développement local avec l’émulateur.
   appliquées automatiquement en haut et en bas pour éviter l’encoche et la
   barre de navigation.
 
-Les notifications système natives Android ne sont pas encore implémentées. Les
-notifications et toasts rendus par l’interface web restent disponibles.
+Les notifications système Android utilisent Firebase Cloud Messaging. Le
+workflow accepte le secret GitHub `FIREBASE_GOOGLE_SERVICES_JSON` contenant le
+fichier `google-services.json`. Si ce secret est absent, l’APK reste compilable
+mais les notifications push sont désactivées.
 
 ## Builds et releases GitHub
 
@@ -61,3 +63,8 @@ build avec une URL différente.
 La clé de signature persistante est conservée dans les secrets GitHub et dans
 le dossier local ignoré `signing/`. Ce fichier doit être sauvegardé : perdre la
 clé empêcherait les futures mises à jour de l’application.
+
+Le backend doit aussi être configuré avec le JSON du compte de service Firebase
+dans `config/firebase-service-account.json`. L’application Android enregistre
+automatiquement son jeton après la connexion ; le serveur l’utilise ensuite
+pour envoyer les notifications de fin de téléchargement.
