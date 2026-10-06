@@ -7,6 +7,9 @@ val mediaforgeUrl = providers.gradleProperty("MEDIAFORGE_URL")
     .orElse("http://10.0.2.2:8080/")
     .get()
     .let { if (it.endsWith("/")) it else "$it/" }
+val releaseVersion = providers.gradleProperty("VERSION_NAME")
+    .orElse("0.1.0")
+    .get()
 
 android {
     namespace = "com.mediaforge.android"
@@ -17,7 +20,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = releaseVersion
 
         buildConfigField("String", "MEDIAFORGE_URL", "\"${mediaforgeUrl.replace("\"", "\\\"")}\"")
     }
