@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -23,6 +24,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
@@ -33,6 +35,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
+    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var credentialStore: CredentialStore
     private val loginExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var credentials: ServerCredentials? = null
@@ -71,8 +74,10 @@ class MainActivity : ComponentActivity() {
             setAcceptThirdPartyCookies(webView, true)
         }
 
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.rgb(17, 17, 27))
+        swipeRefreshLayout = SwipeRefreshLayout(this).apply {
+            setColorSchemeColors(Color.WHITE)
+            setProgressBackgroundColorSchemeColor(Color.rgb(35, 35, 49))
+            setOnRefreshListener { webView.reload() }
             addView(
                 webView,
                 FrameLayout.LayoutParams(
@@ -80,6 +85,14 @@ class MainActivity : ComponentActivity() {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 ),
             )
+        }
+        webView.setOnScrollChangeListener { view, _, _, _, _ ->
+            swipeRefreshLayout.isEnabled = !view.canScrollVertically(-1)
+        }
+
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(17, 17, 27))
+            addView(swipeRefreshLayout)
         }
         applySafeArea(root)
         setContentView(root)
@@ -232,6 +245,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private inner class MediaForgeWebViewClient : WebViewClient() {
+        override fun onPageFinished(view: WebView, url: String) {
+            super.onPageFinished(view, url)
+            if (::swipeRefreshLayout.isInitialized) {
+                swipeRefreshLayout.isRefreshing = false
+            }
+        }
+
+        override fun onReceivedError(
+            view: WebView,
+            request: WebResourceRequest,
+            error: WebResourceError,
+        ) {
+            super.onReceivedError(view, request, error)
+            if (request.isForMainFrame && ::swipeRefreshLayout.isInitialized) {
+                swipeRefreshLayout.isRefreshing = false
+            }
+        }
+
         override fun shouldOverrideUrlLoading(
             view: WebView,
             request: WebResourceRequest,
