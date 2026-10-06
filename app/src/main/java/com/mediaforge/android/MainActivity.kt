@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent(this, ConfigActivity::class.java))
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         credentials = credentialStore.read()
         loadConfiguredServer()
