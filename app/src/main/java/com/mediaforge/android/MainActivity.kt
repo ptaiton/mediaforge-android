@@ -112,7 +112,6 @@ class MainActivity : ComponentActivity() {
             "<html><body style=\"background:#11111b\"></body></html>",
             "text/html",
             "UTF-8",
-            null,
         )
 
         loginExecutor.execute {
