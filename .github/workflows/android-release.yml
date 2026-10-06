@@ -96,6 +96,8 @@ jobs:
           set -euo pipefail
           if [[ -n "$FIREBASE_CONFIG" ]]; then
             printf '%s' "$FIREBASE_CONFIG" > app/google-services.json
+          elif [[ -f app/google-services.json ]]; then
+            echo "Fichier Firebase présent dans le dépôt."
           else
             echo "Secret FIREBASE_GOOGLE_SERVICES_JSON absent : les notifications push seront désactivées dans cet APK."
           fi
