@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name" translatable="false">MediaForge</string>
     <string name="configure_mediaforge">Configure MediaForge</string>
-    <string name="configure_description">Enter your server address and credentials to sign in automatically.</string>
+    <string name="configure_description">Scan a QR code from Quick connection on your server, or enter your server address and credentials.</string>
     <string name="server_url">Server URL</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
@@ -20,7 +20,7 @@
     <string name="push_test_message">Mobile notifications are working.</string>
     <string name="new_notification">New notification</string>
     <string name="qr_scan">Scan QR code</string>
-    <string name="qr_prompt">Scan the code in Settings → Notifications → Mobile on your server.</string>
+    <string name="qr_prompt">Scan the code on the Quick connection page in your server’s left menu.</string>
     <string name="qr_invalid">This is not a valid MediaForge connection QR code.</string>
     <string name="qr_confirm_server">Connect to this server?</string>
     <string name="qr_use_server">Use this server</string>
@@ -40,4 +40,8 @@
     <string name="update_allow_installation">Open Android settings</string>
     <string name="update_install_permission_required">Installation permission was not granted. You can retry from Check for updates.</string>
     <string name="update_install_failed">Unable to install the update. Download it again or use the GitHub release.</string>
+    <string name="qr_connecting">Connecting your phone…</string>
+    <string name="qr_pairing_failed">The QR code has expired, was already used, or the server could not be reached. Generate a new code and scan again.</string>
+    <string name="pairing_revoked">This phone has been disconnected or its access expired. Scan a new QR code or sign in with your password.</string>
+    <string name="paired_security_note">Connected with a QR code. Your device credential is encrypted using Android secure storage. Leave the password empty to keep this connection.</string>
 </resources>

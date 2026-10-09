@@ -1,8 +1,9 @@
 # MediaForge Android
 
 A native Android companion that opens your MediaForge server in a WebView.
-Enter the server URL, username and password once. The password is encrypted with
-Android Keystore, and the app signs in automatically when opened.
+Scan a pairing QR code or enter your server URL, username and password once.
+Device credentials and passwords are encrypted with Android Keystore, and the app
+signs in automatically when opened.
 
 ## Download
 
@@ -12,11 +13,22 @@ credentials on first launch. Use HTTPS when connecting over the internet.
 
 ## Connect with a QR code
 
-Open **Settings → Notifications → Mobile** on the server. Set a server address
-reachable from your phone and optionally a username. In the Android companion,
-tap **Scan QR code**, confirm the displayed server and enter your password.
-The QR code never includes passwords or session tokens. Scanning only fills the
-form; it does not change saved credentials until you choose **Save and open**.
+Open **Quick connection** in the server's left sidebar while signed in to the
+account you want to use. Its username is filled automatically. Set a server
+address reachable from your phone, then tap **Scan QR code** in the Android app
+and confirm the displayed server and account. The app signs in directly without
+asking for your password.
+
+Pairing codes expire after two minutes and work only once. Keep the QR code
+private because it grants access to your account. The app stores its separate
+device credential encrypted with Android Keystore; the server stores only hashes.
+You can disconnect a phone from the same web page, immediately invalidating its
+sessions and removing its push registration. Device access expires after 90 days
+without signing in. Scan a new code to reconnect.
+
+Manual username/password setup and older QR codes that only fill the login form
+remain supported. Changing servers or accounts clears the previous push settings
+and web session.
 
 ## In-app updates
 

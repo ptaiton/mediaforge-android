@@ -22,6 +22,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
 class ConfigActivity : ComponentActivity() {
+    private val pairingExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private var pairingInProgress = false
     private lateinit var updates: AppUpdates
     private val scanner = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let { value ->
@@ -37,8 +39,9 @@ class ConfigActivity : ComponentActivity() {
                         urlInput.setText(link.serverUrl)
                         usernameInput.setText(link.username)
                         passwordInput.setText("")
-                        passwordInput.requestFocus()
-                        errorText.visibility = TextView.GONE
+                        if (link.pairingCode != null) pairAndOpen(link)
+                        else passwordInput.requestFocus()
+                        if (link.pairingCode == null) errorText.visibility = TextView.GONE
                     }
                     .setNegativeButton(android.R.string.cancel, null).show()
             }
@@ -67,6 +70,10 @@ class ConfigActivity : ComponentActivity() {
         ViewCompat.requestApplyInsets(content)
         setContentView(content)
         updates = AppUpdates(this)
+        if (intent.getBooleanExtra("pairing_required", false)) {
+            errorText.text = getString(R.string.pairing_revoked)
+            errorText.visibility = TextView.VISIBLE
+        }
     }
 
     private fun createContent(): ScrollView {
@@ -107,6 +114,7 @@ class ConfigActivity : ComponentActivity() {
             text = getString(R.string.qr_scan)
             isAllCaps = false
             setOnClickListener {
+                if (pairingInProgress) return@setOnClickListener
                 scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                     .setPrompt(getString(R.string.qr_prompt)).setBeepEnabled(false).setOrientationLocked(false))
             }
@@ -154,7 +162,7 @@ class ConfigActivity : ComponentActivity() {
         content.addView(saveButton, inputLayoutParams(top = 8))
 
         val securityNote = TextView(this).apply {
-            text = getString(R.string.password_security_note)
+            text = getString(if (existing?.deviceToken != null) R.string.paired_security_note else R.string.password_security_note)
             textSize = 12f
             setTextColor(Color.GRAY)
             gravity = android.view.Gravity.CENTER
@@ -181,17 +189,38 @@ class ConfigActivity : ComponentActivity() {
         }
     }
 
+    private fun pairAndOpen(link: ConnectionLink) {
+        if (pairingInProgress) return
+        pairingInProgress = true
+        errorText.text = getString(R.string.qr_connecting)
+        errorText.visibility = TextView.VISIBLE
+        pairingExecutor.execute {
+            val result = runCatching { MobileSession.redeem(link, "Android · ${android.os.Build.MODEL}") }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                pairingInProgress = false
+                result.onSuccess { storeAndOpen(it) }.onFailure {
+                    errorText.text = getString(R.string.qr_pairing_failed)
+                    errorText.visibility = TextView.VISIBLE
+                }
+            }
+        }
+    }
+
     private fun saveAndOpen() {
+        if (pairingInProgress) return
         val rawUrl = urlInput.text.toString().trim()
         val username = usernameInput.text.toString().trim()
         val password = passwordInput.text.toString()
         val normalizedUrl = MobileLinks.normalizeServer(rawUrl)
 
+        val existing = credentialStore.read()
+        val retainedToken = existing?.deviceToken?.takeIf { existing.baseUrl == normalizedUrl && existing.username == username && password.isBlank() }
         val error = when {
             normalizedUrl == null ->
                 getString(R.string.invalid_server_url)
             username.isBlank() -> getString(R.string.username_required)
-            password.isBlank() -> getString(R.string.password_required)
+            password.isBlank() && retainedToken == null -> getString(R.string.password_required)
             else -> null
         }
 
@@ -201,10 +230,14 @@ class ConfigActivity : ComponentActivity() {
             return
         }
 
+        storeAndOpen(ServerCredentials(requireNotNull(normalizedUrl), username, password, retainedToken))
+    }
+
+    private fun storeAndOpen(credentials: ServerCredentials) {
         val previous = credentialStore.read()
-        val accountChanged = previous != null && (previous.baseUrl != normalizedUrl || previous.username != username)
+        val accountChanged = previous != null && (previous.baseUrl != credentials.baseUrl || previous.username != credentials.username)
         if (accountChanged) PushConfiguration.clear(applicationContext)
-        credentialStore.save(ServerCredentials(requireNotNull(normalizedUrl), username, password))
+        credentialStore.save(credentials)
         fun openServer() {
             if (isFinishing || isDestroyed) return
             startActivity(Intent(this, MainActivity::class.java).apply {
@@ -221,6 +254,7 @@ class ConfigActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        pairingExecutor.shutdownNow()
         if (::updates.isInitialized) updates.close()
         super.onDestroy()
     }

@@ -25,9 +25,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -148,29 +145,9 @@ class MainActivity : ComponentActivity() {
             var failure: String? = null
 
             try {
-                val connection = URL(loginUrl(currentCredentials.baseUrl)).openConnection() as HttpURLConnection
-                connection.requestMethod = "POST"
-                connection.connectTimeout = 15_000
-                connection.readTimeout = 15_000
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.setRequestProperty("Accept", "application/json")
-
-                val body = JSONObject()
-                    .put("username", currentCredentials.username)
-                    .put("password", currentCredentials.password)
-                    .toString()
-                    .toByteArray(Charsets.UTF_8)
-                connection.outputStream.use { it.write(body) }
-                responseCode = connection.responseCode
-                cookies = connection.headerFields
-                    .filterKeys { it.equals("Set-Cookie", ignoreCase = true) }
-                    .values
-                    .flatMap { it.orEmpty() }
-                runCatching {
-                    (if (responseCode >= 400) connection.errorStream else connection.inputStream)?.close()
-                }
-                connection.disconnect()
+                val result = MobileSession.authenticate(currentCredentials)
+                responseCode = result.status
+                cookies = result.cookies
             } catch (exception: Exception) {
                 failure = exception.message ?: getString(R.string.server_unreachable)
             }
@@ -189,6 +166,14 @@ class MainActivity : ComponentActivity() {
                     PushConfiguration.refresh(applicationContext, currentCredentials, cookies.joinToString("; ") { it.substringBefore(';') })
                     webView.loadUrl(target)
                 } else {
+                    if (responseCode == 401 && currentCredentials.deviceToken != null) {
+                        CredentialStore(this).clear()
+                        PushConfiguration.clear(applicationContext)
+                        cookieManager.removeAllCookies { cookieManager.flush() }
+                        startActivity(Intent(this, ConfigActivity::class.java).putExtra("pairing_required", true))
+                        finish()
+                        return@runOnUiThread
+                    }
                     webView.loadUrl(target)
                     val message = when {
                         failure != null -> getString(R.string.connection_failed, failure)
@@ -200,8 +185,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    private fun loginUrl(baseUrl: String): String = "${baseUrl.trimEnd('/')}/api/auth/login"
 
     private fun configureNotifications() {
         val channelId = "mediaforge-events"

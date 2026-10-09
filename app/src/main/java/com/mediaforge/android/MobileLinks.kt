@@ -4,7 +4,7 @@ import java.net.URI
 import java.net.URLDecoder
 import java.security.MessageDigest
 
-data class ConnectionLink(val serverUrl: String, val username: String)
+data class ConnectionLink(val serverUrl: String, val username: String, val pairingCode: String? = null)
 
 object MobileLinks {
     const val MEDIA_ID = "media_id"
@@ -40,11 +40,13 @@ object MobileLinks {
             URLDecoder.decode(pieces[0], "UTF-8") to URLDecoder.decode(pieces[1], "UTF-8")
         }
         require(params.map { it.first }.distinct().size == params.size)
-        require(params.all { it.first in setOf("server", "username") })
+        require(params.all { it.first in setOf("server", "username", "code") })
         val fields = params.toMap()
         val server = normalizeServer(fields["server"].orEmpty()) ?: error("Invalid server")
         val username = fields["username"].orEmpty()
         require(username.length <= 128 && username.none { it.isISOControl() })
-        ConnectionLink(server, username)
+        val code = fields["code"]
+        require(code == null || (username.isNotBlank() && code.matches(Regex("[0-9a-f]{64}"))))
+        ConnectionLink(server, username, code)
     }.getOrNull()
 }
