@@ -14,10 +14,10 @@ credentials on first launch. Use HTTPS when connecting over the internet.
 ## Connect with a QR code
 
 Open **Quick connection** in the server's left sidebar while signed in to the
-account you want to use. Its username is filled automatically. Set a server
-address reachable from your phone, then tap **Scan QR code** in the Android app
-and confirm the displayed server and account. The app signs in directly without
-asking for your password.
+account you want to use. The QR code automatically uses the server address open
+in your browser and your signed-in username. Tap **Scan QR code** in the Android
+app and confirm the displayed server and account. The app signs in directly
+without asking for your password.
 
 Pairing codes expire after two minutes and work only once. Keep the QR code
 private because it grants access to your account. The app stores its separate
