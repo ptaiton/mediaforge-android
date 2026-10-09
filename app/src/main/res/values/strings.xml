@@ -44,4 +44,8 @@
     <string name="qr_pairing_failed">The QR code has expired, was already used, or the server could not be reached. Generate a new code and scan again.</string>
     <string name="pairing_revoked">This phone has been disconnected or its access expired. Scan a new QR code or sign in with your password.</string>
     <string name="paired_security_note">Connected with a QR code. Your device credential is encrypted using Android secure storage. Leave the password empty to keep this connection.</string>
+    <string name="qr_camera_preview">Camera preview for scanning a connection QR code</string>
+    <string name="qr_camera_unavailable">Unable to open the camera. Try again or sign in manually.</string>
+    <string name="qr_camera_permission">Camera access is needed to scan a QR code. Allow it in Android settings or sign in manually.</string>
+    <string name="qr_scan_again">Scan again</string>
 </resources>

@@ -1,6 +1,8 @@
 package com.mediaforge.android
 
-import android.app.AlertDialog
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.CookieManager
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -13,8 +15,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -25,27 +25,14 @@ class ConfigActivity : ComponentActivity() {
     private val pairingExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var pairingInProgress = false
     private lateinit var updates: AppUpdates
-    private val scanner = registerForActivityResult(ScanContract()) { result ->
-        result.contents?.let { value ->
-            val link = MobileLinks.connection(value)
-            if (link == null) {
-                errorText.text = getString(R.string.qr_invalid)
-                errorText.visibility = TextView.VISIBLE
-            } else {
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.qr_confirm_server)
-                    .setMessage(link.serverUrl + if (link.username.isNotEmpty()) "\n${link.username}" else "")
-                    .setPositiveButton(R.string.qr_use_server) { _, _ ->
-                        urlInput.setText(link.serverUrl)
-                        usernameInput.setText(link.username)
-                        passwordInput.setText("")
-                        if (link.pairingCode != null) pairAndOpen(link)
-                        else passwordInput.requestFocus()
-                        if (link.pairingCode == null) errorText.visibility = TextView.GONE
-                    }
-                    .setNegativeButton(android.R.string.cancel, null).show()
-            }
-        }
+    private var scannerDialog: ConnectionScannerDialog? = null
+    private var foreground = false
+    private var pairingGeneration = 0
+    private data class PendingPairing(val generation: Int, val source: ConnectionScannerDialog, val result: Result<ServerCredentials>)
+    private var pendingPairing: PendingPairing? = null
+    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) { if (foreground) scannerDialog?.resume() }
+        else scannerDialog?.permissionDenied()
     }
     private lateinit var credentialStore: CredentialStore
     private lateinit var urlInput: EditText
@@ -115,8 +102,7 @@ class ConfigActivity : ComponentActivity() {
             isAllCaps = false
             setOnClickListener {
                 if (pairingInProgress) return@setOnClickListener
-                scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                    .setPrompt(getString(R.string.qr_prompt)).setBeepEnabled(false).setOrientationLocked(false))
+                showScanner()
             }
         }
         content.addView(scanButton, inputLayoutParams())
@@ -189,22 +175,77 @@ class ConfigActivity : ComponentActivity() {
         }
     }
 
-    private fun pairAndOpen(link: ConnectionLink) {
+    private fun showScanner() {
+        if (scannerDialog?.isShowing == true || pairingInProgress) return
+        val source = ConnectionScannerDialog(
+            this,
+            requestCamera = {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    if (foreground) scannerDialog?.resume()
+                } else cameraPermission.launch(Manifest.permission.CAMERA)
+            },
+            connect = { link ->
+                val active = scannerDialog
+                if (link.pairingCode != null && active != null) pairAndOpen(link, active)
+                else {
+                    urlInput.setText(link.serverUrl)
+                    usernameInput.setText(link.username)
+                    passwordInput.setText("")
+                    errorText.visibility = TextView.GONE
+                    active?.dismiss()
+                    passwordInput.requestFocus()
+                }
+            },
+            dismissed = {
+                scannerDialog = null
+                pairingGeneration++
+                pendingPairing = null
+                pairingInProgress = false
+            },
+        )
+        scannerDialog = source
+        source.show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        foreground = true
+        scannerDialog?.resume()
+        applyPendingPairing()
+    }
+
+    override fun onPause() {
+        foreground = false
+        scannerDialog?.pause()
+        super.onPause()
+    }
+
+    private fun pairAndOpen(link: ConnectionLink, source: ConnectionScannerDialog) {
         if (pairingInProgress) return
         pairingInProgress = true
-        errorText.text = getString(R.string.qr_connecting)
-        errorText.visibility = TextView.VISIBLE
+        val generation = ++pairingGeneration
+        source.connecting()
         pairingExecutor.execute {
             val result = runCatching { MobileSession.redeem(link, "Android · ${android.os.Build.MODEL}") }
             runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
-                pairingInProgress = false
-                result.onSuccess { storeAndOpen(it) }.onFailure {
-                    errorText.text = getString(R.string.qr_pairing_failed)
-                    errorText.visibility = TextView.VISIBLE
-                }
+                if (isFinishing || isDestroyed || generation != pairingGeneration || !source.isShowing) return@runOnUiThread
+                pendingPairing = PendingPairing(generation, source, result)
+                applyPendingPairing()
             }
         }
+    }
+
+    private fun applyPendingPairing() {
+        if (!foreground) return
+        val pending = pendingPairing ?: return
+        pendingPairing = null
+        if (pending.generation != pairingGeneration || !pending.source.isShowing) return
+        pairingInProgress = false
+        pending.result.onSuccess { credentials ->
+            runCatching { storeAndOpen(credentials) }
+                .onSuccess { pending.source.dismiss() }
+                .onFailure { pending.source.pairingFailed() }
+        }.onFailure { pending.source.pairingFailed() }
     }
 
     private fun saveAndOpen() {
@@ -254,6 +295,7 @@ class ConfigActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        scannerDialog?.dismiss()
         pairingExecutor.shutdownNow()
         if (::updates.isInitialized) updates.close()
         super.onDestroy()

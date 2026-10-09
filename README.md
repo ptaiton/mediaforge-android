@@ -19,6 +19,12 @@ in your browser and your signed-in username. Tap **Scan QR code** in the Android
 app and confirm the displayed server and account. The app signs in directly
 without asking for your password.
 
+The camera is embedded in the connection dialog and follows the phone’s current
+orientation. The same dialog confirms the server and account and shows pairing
+progress. Camera access is requested only when scanning and the preview stops
+when the dialog closes or the app goes into the background. Invalid codes can be
+rescanned without leaving the connection screen.
+
 Pairing codes expire after two minutes and work only once. Keep the QR code
 private because it grants access to your account. The app stores its separate
 device credential encrypted with Android Keystore; the server stores only hashes.
