@@ -1,9 +1,10 @@
 package com.mediaforge.android
 
+import android.app.AlertDialog
+import android.webkit.CookieManager
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.ViewGroup
@@ -12,6 +13,8 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -19,6 +22,28 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 
 class ConfigActivity : ComponentActivity() {
+    private lateinit var updates: AppUpdates
+    private val scanner = registerForActivityResult(ScanContract()) { result ->
+        result.contents?.let { value ->
+            val link = MobileLinks.connection(value)
+            if (link == null) {
+                errorText.text = getString(R.string.qr_invalid)
+                errorText.visibility = TextView.VISIBLE
+            } else {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.qr_confirm_server)
+                    .setMessage(link.serverUrl + if (link.username.isNotEmpty()) "\n${link.username}" else "")
+                    .setPositiveButton(R.string.qr_use_server) { _, _ ->
+                        urlInput.setText(link.serverUrl)
+                        usernameInput.setText(link.username)
+                        passwordInput.setText("")
+                        passwordInput.requestFocus()
+                        errorText.visibility = TextView.GONE
+                    }
+                    .setNegativeButton(android.R.string.cancel, null).show()
+            }
+        }
+    }
     private lateinit var credentialStore: CredentialStore
     private lateinit var urlInput: EditText
     private lateinit var usernameInput: EditText
@@ -41,6 +66,7 @@ class ConfigActivity : ComponentActivity() {
         }
         ViewCompat.requestApplyInsets(content)
         setContentView(content)
+        updates = AppUpdates(this)
     }
 
     private fun createContent(): ScrollView {
@@ -76,6 +102,16 @@ class ConfigActivity : ComponentActivity() {
             setPadding(0, 0, 0, dp(28))
         }
         content.addView(description, matchParentWrap())
+
+        val scanButton = Button(this).apply {
+            text = getString(R.string.qr_scan)
+            isAllCaps = false
+            setOnClickListener {
+                scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    .setPrompt(getString(R.string.qr_prompt)).setBeepEnabled(false).setOrientationLocked(false))
+            }
+        }
+        content.addView(scanButton, inputLayoutParams())
 
         urlInput = createInput(
             hint = getString(R.string.server_url),
@@ -126,6 +162,19 @@ class ConfigActivity : ComponentActivity() {
         }
         content.addView(securityNote, matchParentWrap())
 
+        val updateButton = Button(this).apply {
+            text = getString(R.string.update_check_button)
+            isAllCaps = false
+            setOnClickListener { updates.check(manual = true) }
+        }
+        content.addView(updateButton, inputLayoutParams(top = 24))
+        content.addView(TextView(this).apply {
+            text = getString(R.string.app_version, BuildConfig.VERSION_NAME)
+            textSize = 12f
+            setTextColor(Color.GRAY)
+            gravity = android.view.Gravity.CENTER
+        }, matchParentWrap())
+
         return ScrollView(this).apply {
             isFillViewport = true
             addView(content)
@@ -136,10 +185,10 @@ class ConfigActivity : ComponentActivity() {
         val rawUrl = urlInput.text.toString().trim()
         val username = usernameInput.text.toString().trim()
         val password = passwordInput.text.toString()
-        val parsedUrl = Uri.parse(rawUrl)
+        val normalizedUrl = MobileLinks.normalizeServer(rawUrl)
 
         val error = when {
-            parsedUrl.scheme !in setOf("http", "https") || parsedUrl.host.isNullOrBlank() ->
+            normalizedUrl == null ->
                 getString(R.string.invalid_server_url)
             username.isBlank() -> getString(R.string.username_required)
             password.isBlank() -> getString(R.string.password_required)
@@ -152,18 +201,28 @@ class ConfigActivity : ComponentActivity() {
             return
         }
 
-        val normalizedUrl = if (rawUrl.endsWith('/')) rawUrl else "$rawUrl/"
         val previous = credentialStore.read()
-        if (previous != null && (previous.baseUrl != normalizedUrl || previous.username != username)) {
-            PushConfiguration.clear(applicationContext)
-        }
-        credentialStore.save(ServerCredentials(normalizedUrl, username, password))
-        startActivity(
-            Intent(this, MainActivity::class.java).apply {
+        val accountChanged = previous != null && (previous.baseUrl != normalizedUrl || previous.username != username)
+        if (accountChanged) PushConfiguration.clear(applicationContext)
+        credentialStore.save(ServerCredentials(requireNotNull(normalizedUrl), username, password))
+        fun openServer() {
+            if (isFinishing || isDestroyed) return
+            startActivity(Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            },
-        )
-        finish()
+            })
+            finish()
+        }
+        if (accountChanged) {
+            CookieManager.getInstance().removeAllCookies {
+                CookieManager.getInstance().flush()
+                openServer()
+            }
+        } else openServer()
+    }
+
+    override fun onDestroy() {
+        if (::updates.isInitialized) updates.close()
+        super.onDestroy()
     }
 
     private fun createInput(hint: String, inputType: Int, value: String): EditText =

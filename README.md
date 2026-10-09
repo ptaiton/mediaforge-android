@@ -10,6 +10,27 @@ Download the signed APK from the [latest release](https://github.com/ptaiton/med
 and install it on Android 8.0 or newer. Enter your own MediaForge server URL and
 credentials on first launch. Use HTTPS when connecting over the internet.
 
+## Connect with a QR code
+
+Open **Settings → Notifications → Mobile** on the server. Set a server address
+reachable from your phone and optionally a username. In the Android companion,
+tap **Scan QR code**, confirm the displayed server and enter your password.
+The QR code never includes passwords or session tokens. Scanning only fills the
+form; it does not change saved credentials until you choose **Save and open**.
+
+## In-app updates
+
+The app checks the public GitHub releases when opened or resumed, at most once
+every six hours. You can also choose **Check for updates** in the companion
+settings. Downloading requires confirmation; the app verifies the checksum,
+package name, newer version and signing certificate before opening the Android
+installer. Android may first ask you to allow installations from MediaForge.
+Server settings and credentials are preserved by an update.
+
+The first version with this updater must be installed manually. Subsequent
+signed releases can be installed from inside the app. Debug builds use a
+different signing certificate and cannot update to a release APK in place.
+
 ## Mobile notifications
 
 Configure Firebase in your server's **Settings → Notifications → Mobile** tab:
@@ -33,6 +54,10 @@ Reconnect after changing the server's Firebase project. If the server is
 unavailable, a working cached configuration is retained. The server's test button
 sends a notification to devices registered with the account running the test.
 
+Tap a media notification to open that title in the library, including when the
+app is closed. Notifications are bound to the server and account configured when
+they arrived; switching either prevents opening a title on the wrong account.
+
 Native screens and notification text support English and French using the phone's
 language. The embedded web interface follows the browser language.
 
@@ -41,7 +66,7 @@ language. The embedded web interface follows the browser language.
 Use JDK 17, Gradle 8.9 and Android SDK 35:
 
 ```sh
-gradle --no-daemon assembleDebug lintDebug
+gradle --no-daemon assembleDebug lintDebug testDebugUnitTest
 ```
 
 The APK is generated at `app/build/outputs/apk/debug/app-debug.apk`. Release builds

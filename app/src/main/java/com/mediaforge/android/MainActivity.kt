@@ -37,6 +37,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var credentialStore: CredentialStore
     private val loginExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var credentials: ServerCredentials? = null
+    private var pendingMediaId: Int? = null
+    private var loginGeneration = 0
+    private var authenticationPending = false
+    private lateinit var updates: AppUpdates
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +53,10 @@ class MainActivity : ComponentActivity() {
             finish()
             return
         }
+
+        val canRestore = savedInstanceState != null && savedInstanceState.getString("saved_server_identity") == MobileLinks.identity(requireNotNull(credentials))
+        pendingMediaId = if (savedInstanceState == null) notificationTarget(intent)
+            else if (canRestore) savedInstanceState.getInt("pending_media_id", 0).takeIf { it > 0 } else null
 
         configureSystemBars()
         configureNotifications()
@@ -94,6 +102,7 @@ class MainActivity : ComponentActivity() {
         }
         applySafeArea(root)
         setContentView(root)
+        updates = AppUpdates(this)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -101,10 +110,8 @@ class MainActivity : ComponentActivity() {
             }
         })
 
-        if (savedInstanceState == null) {
+        if (!canRestore || pendingMediaId != null || savedInstanceState?.getBoolean("authentication_pending") == true || webView.restoreState(savedInstanceState!!) == null) {
             authenticateAndLoadServer()
-        } else {
-            webView.restoreState(savedInstanceState)
         }
     }
 
@@ -127,6 +134,8 @@ class MainActivity : ComponentActivity() {
 
     private fun authenticateAndLoadServer() {
         val currentCredentials = credentials ?: return
+        val generation = ++loginGeneration
+        authenticationPending = true
         webView.loadData(
             "<html><body style=\"background:#11111b\"></body></html>",
             "text/html",
@@ -167,16 +176,20 @@ class MainActivity : ComponentActivity() {
             }
 
             runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (isFinishing || isDestroyed || generation != loginGeneration) return@runOnUiThread
 
+                authenticationPending = false
+                val target = pendingMediaId?.let { "${currentCredentials.baseUrl.trimEnd('/')}/library/$it" }
+                    ?: currentCredentials.baseUrl
+                pendingMediaId = null
                 val cookieManager = CookieManager.getInstance()
                 if (responseCode in 200..299 && cookies.isNotEmpty()) {
                     cookies.forEach { cookieManager.setCookie(currentCredentials.baseUrl, it) }
                     cookieManager.flush()
                     PushConfiguration.refresh(applicationContext, currentCredentials, cookies.joinToString("; ") { it.substringBefore(';') })
-                    webView.loadUrl(currentCredentials.baseUrl)
+                    webView.loadUrl(target)
                 } else {
-                    webView.loadUrl(currentCredentials.baseUrl)
+                    webView.loadUrl(target)
                     val message = when {
                         failure != null -> getString(R.string.connection_failed, failure)
                         responseCode == 401 -> getString(R.string.invalid_credentials)
@@ -213,16 +226,38 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         credentials = credentialStore.read()
+        if (credentials == null) {
+            openConfiguration()
+            finish()
+            return
+        }
+        pendingMediaId = notificationTarget(intent)
         authenticateAndLoadServer()
     }
 
+    private fun notificationTarget(intent: Intent): Int? {
+        val current = credentials ?: return null
+        if (intent.getStringExtra(MobileLinks.SERVER_IDENTITY) != MobileLinks.identity(current)) return null
+        return intent.getIntExtra(MobileLinks.MEDIA_ID, 0).takeIf { it > 0 }
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
-        webView.saveState(outState)
+        outState.putInt("pending_media_id", pendingMediaId ?: 0)
+        outState.putString("saved_server_identity", credentials?.let { MobileLinks.identity(it) })
+        outState.putBoolean("authentication_pending", authenticationPending)
+        if (::webView.isInitialized) webView.saveState(outState)
         super.onSaveInstanceState(outState)
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::updates.isInitialized) updates.check()
+    }
+
     override fun onDestroy() {
+        if (::updates.isInitialized) updates.close()
         loginExecutor.shutdownNow()
         if (::webView.isInitialized) {
             webView.apply {

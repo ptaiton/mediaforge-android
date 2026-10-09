@@ -28,10 +28,10 @@ class MediaForgeMessagingService : FirebaseMessagingService() {
             "test" -> getString(R.string.push_test_message)
             else -> message.notification?.body ?: message.data["body"] ?: getString(R.string.new_notification)
         }
-        showNotification(title, body)
+        showNotification(title, body, MobileLinks.mediaId(message.data["media_id"]))
     }
 
-    private fun showNotification(title: String, body: String) {
+    private fun showNotification(title: String, body: String, mediaId: Int?) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val channelId = "mediaforge-events"
         val manager = getSystemService(NotificationManager::class.java)
@@ -45,11 +45,18 @@ class MediaForgeMessagingService : FirebaseMessagingService() {
             )
         }
 
+        val credentials = CredentialStore(this).read()
+        val notificationTag = MobileLinks.notificationTag(credentials)
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            mediaId ?: 0,
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                data = android.net.Uri.parse("mediaforge://notification/$notificationTag/${mediaId ?: 0}")
+                if (mediaId != null && credentials != null) {
+                    putExtra(MobileLinks.MEDIA_ID, mediaId)
+                    putExtra(MobileLinks.SERVER_IDENTITY, MobileLinks.identity(credentials))
+                }
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -61,6 +68,6 @@ class MediaForgeMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
-        NotificationManagerCompat.from(this).notify(System.currentTimeMillis().toInt(), notification)
+        NotificationManagerCompat.from(this).notify(notificationTag, mediaId ?: 0, notification)
     }
 }

@@ -61,6 +61,14 @@ android {
 }
 
 dependencies {
+    constraints {
+        implementation("androidx.fragment:fragment:1.8.6") {
+            because("The QR scanner must support the Activity Result API used by the companion.")
+        }
+    }
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250107")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
