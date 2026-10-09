@@ -3,10 +3,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
-}
-
 val mediaforgeUrl = providers.gradleProperty("MEDIAFORGE_URL")
     .orElse("http://10.0.2.2:8080/")
     .get()

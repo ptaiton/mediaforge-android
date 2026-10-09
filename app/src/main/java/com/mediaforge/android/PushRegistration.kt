@@ -12,6 +12,7 @@ object PushRegistration {
     fun register(context: Context, token: String) {
         executor.execute {
             val credentials = CredentialStore(context.applicationContext).read() ?: return@execute
+            val projectId = PushConfiguration.projectId(context.applicationContext) ?: return@execute
             runCatching {
                 val cookie = login(credentials)
                 val connection = URL("${credentials.baseUrl.trimEnd('/')}/api/mobile/push-tokens")
@@ -26,6 +27,7 @@ object PushRegistration {
                 val body = JSONObject()
                     .put("token", token)
                     .put("platform", "android")
+                    .put("project_id", projectId)
                     .toString()
                     .toByteArray(Charsets.UTF_8)
                 connection.outputStream.use { it.write(body) }

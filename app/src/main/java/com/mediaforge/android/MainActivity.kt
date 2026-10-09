@@ -25,8 +25,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.google.firebase.FirebaseApp
-import com.google.firebase.messaging.FirebaseMessaging
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -165,7 +163,7 @@ class MainActivity : ComponentActivity() {
                 }
                 connection.disconnect()
             } catch (exception: Exception) {
-                failure = exception.message ?: "Impossible de joindre le serveur."
+                failure = exception.message ?: getString(R.string.server_unreachable)
             }
 
             runOnUiThread {
@@ -175,14 +173,14 @@ class MainActivity : ComponentActivity() {
                 if (responseCode in 200..299 && cookies.isNotEmpty()) {
                     cookies.forEach { cookieManager.setCookie(currentCredentials.baseUrl, it) }
                     cookieManager.flush()
-                    registerPushToken()
+                    PushConfiguration.refresh(applicationContext, currentCredentials, cookies.joinToString("; ") { it.substringBefore(';') })
                     webView.loadUrl(currentCredentials.baseUrl)
                 } else {
                     webView.loadUrl(currentCredentials.baseUrl)
                     val message = when {
-                        failure != null -> "Connexion au serveur impossible : $failure"
-                        responseCode == 401 -> "Identifiants invalides."
-                        else -> "Connexion automatique impossible (HTTP $responseCode)."
+                        failure != null -> getString(R.string.connection_failed, failure)
+                        responseCode == 401 -> getString(R.string.invalid_credentials)
+                        else -> getString(R.string.automatic_login_failed, responseCode)
                     }
                     android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
                 }
@@ -197,7 +195,7 @@ class MainActivity : ComponentActivity() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
                 channelId,
-                "Notifications MediaForge",
+                getString(R.string.notification_channel),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ),
         )
@@ -206,13 +204,6 @@ class MainActivity : ComponentActivity() {
             PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST_CODE)
-        }
-    }
-
-    private fun registerPushToken() {
-        if (FirebaseApp.getApps(this).isEmpty()) return
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            PushRegistration.register(this, token)
         }
     }
 

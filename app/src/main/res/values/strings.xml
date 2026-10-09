@@ -1,4 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MediaForge</string>
+    <string name="app_name" translatable="false">MediaForge</string>
+    <string name="configure_mediaforge">Configure MediaForge</string>
+    <string name="configure_description">Enter your server address and credentials to sign in automatically.</string>
+    <string name="server_url">Server URL</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="save_and_open">Save and open MediaForge</string>
+    <string name="password_security_note">Your password is encrypted using Android secure storage.</string>
+    <string name="invalid_server_url">The URL must start with http:// or https:// and contain a server.</string>
+    <string name="username_required">Username is required.</string>
+    <string name="password_required">Password is required.</string>
+    <string name="server_unreachable">Unable to reach the server.</string>
+    <string name="connection_failed">Unable to connect to the server: %1$s</string>
+    <string name="invalid_credentials">Invalid credentials.</string>
+    <string name="automatic_login_failed">Automatic sign-in failed (HTTP %1$d).</string>
+    <string name="notification_channel">MediaForge notifications</string>
+    <string name="download_completed">Download completed</string>
+    <string name="media_available">%1$s is now available in your library.</string>
+    <string name="push_test_message">Mobile notifications are working.</string>
+    <string name="new_notification">New notification</string>
 </resources>

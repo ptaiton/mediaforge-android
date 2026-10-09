@@ -1,0 +1,21 @@
+<resources>
+    <string name="configure_mediaforge">Configurer MediaForge</string>
+    <string name="configure_description">Indiquez l’adresse de votre serveur et vos identifiants pour ouvrir automatiquement votre session.</string>
+    <string name="server_url">URL du serveur</string>
+    <string name="username">Nom d’utilisateur</string>
+    <string name="password">Mot de passe</string>
+    <string name="save_and_open">Enregistrer et ouvrir MediaForge</string>
+    <string name="password_security_note">Le mot de passe est chiffré avec le stockage sécurisé Android.</string>
+    <string name="invalid_server_url">L’URL doit commencer par http:// ou https:// et contenir un serveur.</string>
+    <string name="username_required">Le nom d’utilisateur est obligatoire.</string>
+    <string name="password_required">Le mot de passe est obligatoire.</string>
+    <string name="server_unreachable">Impossible de joindre le serveur.</string>
+    <string name="connection_failed">Connexion au serveur impossible : %1$s</string>
+    <string name="invalid_credentials">Identifiants invalides.</string>
+    <string name="automatic_login_failed">Connexion automatique impossible (HTTP %1$d).</string>
+    <string name="notification_channel">Notifications MediaForge</string>
+    <string name="download_completed">Téléchargement terminé</string>
+    <string name="media_available">%1$s est maintenant disponible dans votre bibliothèque.</string>
+    <string name="push_test_message">Les notifications mobiles fonctionnent.</string>
+    <string name="new_notification">Nouvelle notification</string>
+</resources>

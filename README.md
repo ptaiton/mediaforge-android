@@ -1,70 +1,48 @@
 # MediaForge Android
 
-Application Android minimale qui embarque l’interface web MediaForge dans une
-WebView native.
+A native Android companion that opens your MediaForge server in a WebView.
+Enter the server URL, username and password once. The password is encrypted with
+Android Keystore, and the app signs in automatically when opened.
 
-Au premier démarrage, un écran de configuration demande l’URL du serveur, le
-nom d’utilisateur et le mot de passe. Le mot de passe est chiffré avec Android
-Keystore ; l’application authentifie directement la session puis ouvre la
-WebView avec son cookie de connexion.
+## Mobile notifications
 
-## Ouvrir le projet
+Configure Firebase in your server's **Settings → Notifications → Mobile** tab:
 
-Ouvrir le dossier `mediaforge-android` dans Android Studio, puis synchroniser
-le projet Gradle. Le SDK Android 35 et un JDK 17 sont nécessaires.
+1. Create a Firebase project and register an Android app with the package name
+   `com.mediaforge.android`.
+2. Download `google-services.json` for that Android app and generate a private
+   service account JSON key in **Project settings → Service accounts**.
+3. Enable the Firebase Cloud Messaging API if necessary. Import both files in the
+   server settings, enable mobile notifications and save.
+4. Sign in from the Android app and allow notifications when prompted.
 
-## URL du serveur
+The app retrieves only public Firebase settings after authentication, caches them
+locally and restores them when Android starts the process for a background
+notification. The private service account stays encrypted on the server. No
+Firebase file or key is required when building the APK, and no shared MediaForge
+notification relay is needed.
 
-Par défaut, l’application vise `http://10.0.2.2:8080/`, qui correspond au port
-8080 de la machine hôte depuis l’émulateur Android. Pour viser une instance
-distante ou un téléphone sur le réseau local, passer une URL au build :
+Changing the server or account clears the previous local push configuration.
+Reconnect after changing the server's Firebase project. If the server is
+unavailable, a working cached configuration is retained. The server's test button
+sends a notification to devices registered with the account running the test.
 
-```bash
-gradle assembleDebug -PMEDIAFORGE_URL=https://mediaforge.example.com/
+Native screens and notification text support English and French using the phone's
+language. The embedded web interface follows the browser language.
+
+## Build
+
+Use JDK 17, Gradle 8.9 and Android SDK 35:
+
+```sh
+gradle --no-daemon assembleDebug lintDebug
 ```
 
-L’URL doit être accessible depuis le téléphone. HTTPS est recommandé pour toute
-instance exposée hors du réseau local. Le support HTTP en clair est conservé
-pour le développement local avec l’émulateur.
+The APK is generated at `app/build/outputs/apk/debug/app-debug.apk`. Release builds
+can use `ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`
+and `ANDROID_KEY_PASSWORD` Gradle properties. Keep signing files out of Git.
 
-## Fonctionnement de la première version
-
-- JavaScript, stockage local, cookies et WebSockets sont activés pour conserver
-  le fonctionnement de l’app web et de la session MediaForge.
-- Le bouton retour Android navigue dans l’historique de la WebView.
-- Les schémas externes (`mailto:`, liens d’applications, etc.) sont ouverts par
-  Android.
-- En mode Android, le menu mobile de MediaForge affiche `App compagnon` avec
-  une icône de réglages pour rouvrir cet écran de configuration.
-- La WebView occupe tout l’écran utile. Les marges système Android sont
-  appliquées automatiquement en haut et en bas pour éviter l’encoche et la
-  barre de navigation.
-
-Les notifications système Android utilisent Firebase Cloud Messaging. Le
-workflow accepte le secret GitHub `FIREBASE_GOOGLE_SERVICES_JSON` contenant le
-fichier `google-services.json`. Si ce secret est absent, l’APK reste compilable
-mais les notifications push sont désactivées.
-
-## Builds et releases GitHub
-
-Le workflow `.github/workflows/android-release.yml` se déclenche à chaque push
-sur `main`. Il calcule automatiquement le prochain tag patch (`v0.1.1`, puis
-`v0.1.2`, etc.), compile un APK release signé, pousse le tag et crée une Release
-GitHub avec l’APK en pièce jointe.
-
-Pour définir l’URL utilisée par les releases, créer une variable de dépôt
-GitHub nommée `MEDIAFORGE_URL`. Il est aussi possible de lancer le workflow
-manuellement et de fournir l’URL dans son champ d’entrée.
-
-Il n’est donc plus nécessaire de créer les tags manuellement. Une exécution
-manuelle du workflow reste possible depuis l’onglet Actions pour tester un
-build avec une URL différente.
-
-La clé de signature persistante est conservée dans les secrets GitHub et dans
-le dossier local ignoré `signing/`. Ce fichier doit être sauvegardé : perdre la
-clé empêcherait les futures mises à jour de l’application.
-
-Le backend doit aussi être configuré avec le JSON du compte de service Firebase
-dans `config/firebase-service-account.json`. L’application Android enregistre
-automatiquement son jeton après la connexion ; le serveur l’utilise ensuite
-pour envoyer les notifications de fin de téléchargement.
+The GitHub workflow builds and signs an APK when changes reach `main`, then creates
+a versioned release. It needs the `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` secrets.
+Firebase configuration is fetched from the selected server at runtime.

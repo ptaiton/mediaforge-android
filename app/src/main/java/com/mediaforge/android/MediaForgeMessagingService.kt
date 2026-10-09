@@ -1,5 +1,8 @@
 package com.mediaforge.android
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -16,19 +19,27 @@ class MediaForgeMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val title = message.notification?.title ?: message.data["title"] ?: "MediaForge"
-        val body = message.notification?.body ?: message.data["body"] ?: "Nouvelle notification"
+        val title = when (message.data["event"]) {
+            "media_available" -> getString(R.string.download_completed)
+            else -> message.notification?.title ?: message.data["title"] ?: "MediaForge"
+        }
+        val body = when (message.data["event"]) {
+            "media_available" -> getString(R.string.media_available, message.data["media_title"].orEmpty())
+            "test" -> getString(R.string.push_test_message)
+            else -> message.notification?.body ?: message.data["body"] ?: getString(R.string.new_notification)
+        }
         showNotification(title, body)
     }
 
     private fun showNotification(title: String, body: String) {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val channelId = "mediaforge-events"
         val manager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
                 NotificationChannel(
                     channelId,
-                    "Notifications MediaForge",
+                    getString(R.string.notification_channel),
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ),
             )

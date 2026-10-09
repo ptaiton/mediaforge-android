@@ -60,7 +60,7 @@ class ConfigActivity : ComponentActivity() {
         content.addView(logo, matchParentWrap())
 
         val title = TextView(this).apply {
-            text = "Configurer MediaForge"
+            text = getString(R.string.configure_mediaforge)
             textSize = 24f
             setTextColor(Color.WHITE)
             gravity = android.view.Gravity.CENTER
@@ -69,7 +69,7 @@ class ConfigActivity : ComponentActivity() {
         content.addView(title, matchParentWrap())
 
         val description = TextView(this).apply {
-            text = "Indiquez l’adresse de votre serveur et vos identifiants pour ouvrir automatiquement votre session."
+            text = getString(R.string.configure_description)
             textSize = 14f
             setTextColor(Color.LTGRAY)
             gravity = android.view.Gravity.CENTER
@@ -78,21 +78,21 @@ class ConfigActivity : ComponentActivity() {
         content.addView(description, matchParentWrap())
 
         urlInput = createInput(
-            hint = "URL du serveur",
+            hint = getString(R.string.server_url),
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI,
             value = existing?.baseUrl ?: "http://10.0.2.2:8080/",
         )
         content.addView(urlInput, inputLayoutParams())
 
         usernameInput = createInput(
-            hint = "Nom d’utilisateur",
+            hint = getString(R.string.username),
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_NORMAL,
             value = existing?.username.orEmpty(),
         )
         content.addView(usernameInput, inputLayoutParams())
 
         passwordInput = createInput(
-            hint = "Mot de passe",
+            hint = getString(R.string.password),
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
             value = existing?.password.orEmpty(),
         )
@@ -107,7 +107,7 @@ class ConfigActivity : ComponentActivity() {
         content.addView(errorText, matchParentWrap())
 
         val saveButton = Button(this).apply {
-            text = "Enregistrer et ouvrir MediaForge"
+            text = getString(R.string.save_and_open)
             isAllCaps = false
             setTextColor(Color.WHITE)
             backgroundTintList = ColorStateList.valueOf(
@@ -118,7 +118,7 @@ class ConfigActivity : ComponentActivity() {
         content.addView(saveButton, inputLayoutParams(top = 8))
 
         val securityNote = TextView(this).apply {
-            text = "Le mot de passe est chiffré avec le stockage sécurisé Android."
+            text = getString(R.string.password_security_note)
             textSize = 12f
             setTextColor(Color.GRAY)
             gravity = android.view.Gravity.CENTER
@@ -140,9 +140,9 @@ class ConfigActivity : ComponentActivity() {
 
         val error = when {
             parsedUrl.scheme !in setOf("http", "https") || parsedUrl.host.isNullOrBlank() ->
-                "L’URL doit commencer par http:// ou https:// et contenir un serveur."
-            username.isBlank() -> "Le nom d’utilisateur est obligatoire."
-            password.isBlank() -> "Le mot de passe est obligatoire."
+                getString(R.string.invalid_server_url)
+            username.isBlank() -> getString(R.string.username_required)
+            password.isBlank() -> getString(R.string.password_required)
             else -> null
         }
 
@@ -153,6 +153,10 @@ class ConfigActivity : ComponentActivity() {
         }
 
         val normalizedUrl = if (rawUrl.endsWith('/')) rawUrl else "$rawUrl/"
+        val previous = credentialStore.read()
+        if (previous != null && (previous.baseUrl != normalizedUrl || previous.username != username)) {
+            PushConfiguration.clear(applicationContext)
+        }
         credentialStore.save(ServerCredentials(normalizedUrl, username, password))
         startActivity(
             Intent(this, MainActivity::class.java).apply {
