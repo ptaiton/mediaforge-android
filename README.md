@@ -4,6 +4,12 @@ A native Android companion that opens your MediaForge server in a WebView.
 Enter the server URL, username and password once. The password is encrypted with
 Android Keystore, and the app signs in automatically when opened.
 
+## Download
+
+Download the signed APK from the [latest release](https://github.com/ptaiton/mediaforge-android/releases/latest)
+and install it on Android 8.0 or newer. Enter your own MediaForge server URL and
+credentials on first launch. Use HTTPS when connecting over the internet.
+
 ## Mobile notifications
 
 Configure Firebase in your server's **Settings → Notifications → Mobile** tab:
@@ -46,3 +52,11 @@ The GitHub workflow builds and signs an APK when changes reach `main`, then crea
 a versioned release. It needs the `ANDROID_KEYSTORE_BASE64`,
 `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` secrets.
 Firebase configuration is fetched from the selected server at runtime.
+
+## Repository privacy
+
+Keep Firebase configuration files, service account keys, signing keystores and
+local credentials out of Git. Firebase configuration comes from the server at
+runtime; no project configuration belongs in this repository. The signing key
+and its passwords are stored as GitHub Actions secrets and are never included
+in release assets. Release APKs contain only the public signing certificate.

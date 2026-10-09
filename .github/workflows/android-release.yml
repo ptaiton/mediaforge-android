@@ -5,11 +5,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      mediaforge_url:
-        description: "URL de l’instance MediaForge embarquée dans l’APK"
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -22,9 +17,6 @@ jobs:
   build-and-release:
     name: Build APK and create release
     runs-on: ubuntu-latest
-
-    env:
-      MEDIAFORGE_URL: ${{ inputs.mediaforge_url || vars.MEDIAFORGE_URL || 'http://10.0.2.2:8080/' }}
 
     steps:
       - name: Checkout
@@ -57,26 +49,26 @@ jobs:
             next_patch=$((BASH_REMATCH[3] + 1))
             tag_name="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$next_patch"
           else
-            echo "Tag existant non conforme : $latest_tag" >&2
+            echo "Invalid existing version tag: $latest_tag" >&2
             exit 1
           fi
 
           if git show-ref --tags --verify --quiet "refs/tags/$tag_name"; then
-            echo "Le tag $tag_name existe déjà." >&2
+            echo "Tag $tag_name already exists." >&2
             exit 1
           fi
 
           if [[ "$tag_name" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             version_code=$((BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3]))
           else
-            echo "Version générée non conforme : $tag_name" >&2
+            echo "Invalid generated version: $tag_name" >&2
             exit 1
           fi
 
           echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
           echo "version_name=${tag_name#v}" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
-          echo "Création de la release $tag_name"
+          echo "Creating release $tag_name"
 
       - name: Decode signing keystore
         env:
@@ -84,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$KEYSTORE_BASE64" ]]; then
-            echo "Le secret ANDROID_KEYSTORE_BASE64 est absent." >&2
+            echo "The ANDROID_KEYSTORE_BASE64 secret is missing." >&2
             exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mediaforge-release.keystore"
@@ -99,7 +91,6 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           gradle --no-daemon assembleRelease \
-            -PMEDIAFORGE_URL="$MEDIAFORGE_URL" \
             -PVERSION_NAME="$VERSION_NAME" \
             -PVERSION_CODE="$VERSION_CODE" \
             -PANDROID_KEYSTORE_FILE="$ANDROID_KEYSTORE_FILE" \

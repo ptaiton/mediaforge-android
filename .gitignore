@@ -8,3 +8,16 @@ keystore.properties
 signing/
 *.keystore
 *.jks
+
+# Local credentials and Firebase configuration
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+*firebase-adminsdk*.json
+credentials.json
+google-services.json
+/backups/
