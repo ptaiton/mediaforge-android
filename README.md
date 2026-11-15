@@ -76,6 +76,12 @@ Tap a media notification to open that title in the library, including when the
 app is closed. Notifications are bound to the server and account configured when
 they arrived; switching either prevents opening a title on the wrong account.
 
+The server also sends a push when a requested movie is available in another
+language version (VF, VFF/VFI, VFQ or VOSTFR). The notification shows the requested
+and offered versions. Tap it to open MediaForge and accept the alternative or
+keep the original request. Proposals are saved on the server, so they remain
+available after signing back in even if the push was missed.
+
 Native screens and notification text support English and French using the phone's
 language. The embedded web interface follows the browser language.
 

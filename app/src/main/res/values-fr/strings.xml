@@ -47,4 +47,6 @@
     <string name="qr_camera_unavailable">Impossible d’ouvrir la caméra. Réessayez ou connectez-vous manuellement.</string>
     <string name="qr_camera_permission">L’accès à la caméra est nécessaire pour scanner un QR code. Autorisez-le dans les paramètres Android ou connectez-vous manuellement.</string>
     <string name="qr_scan_again">Scanner à nouveau</string>
+    <string name="language_alternative_title">Autre version disponible</string>
+    <string name="language_alternative_body">%1$s n’a pas été trouvé en %2$s. Voulez-vous le recevoir en %3$s ? Touchez pour choisir.</string>
 </resources>

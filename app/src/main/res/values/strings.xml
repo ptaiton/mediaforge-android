@@ -48,4 +48,6 @@
     <string name="qr_camera_unavailable">Unable to open the camera. Try again or sign in manually.</string>
     <string name="qr_camera_permission">Camera access is needed to scan a QR code. Allow it in Android settings or sign in manually.</string>
     <string name="qr_scan_again">Scan again</string>
+    <string name="language_alternative_title">Alternative language available</string>
+    <string name="language_alternative_body">%1$s was not found in %2$s. Would you like it in %3$s? Tap to choose.</string>
 </resources>

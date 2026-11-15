@@ -20,11 +20,18 @@ class MediaForgeMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         val title = when (message.data["event"]) {
+            "language_alternative" -> getString(R.string.language_alternative_title)
             "media_available" -> getString(R.string.download_completed)
             else -> message.notification?.title ?: message.data["title"] ?: "MediaForge"
         }
         val body = when (message.data["event"]) {
             "media_available" -> getString(R.string.media_available, message.data["media_title"].orEmpty())
+            "language_alternative" -> getString(
+                R.string.language_alternative_body,
+                message.data["media_title"].orEmpty(),
+                message.data["requested_versions"].orEmpty(),
+                message.data["offered_version"].orEmpty(),
+            )
             "test" -> getString(R.string.push_test_message)
             else -> message.notification?.body ?: message.data["body"] ?: getString(R.string.new_notification)
         }
